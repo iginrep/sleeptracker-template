@@ -36,6 +36,7 @@ class Config:
     catatan_makanan: str
     catatan_olahraga: str
     fitur_budget: bool
+    fitur_makanan: bool
 
 
 def load_config() -> Config:
@@ -52,4 +53,5 @@ def load_config() -> Config:
         catatan_makanan=_opsional("CATATAN_MAKANAN", "-"),
         catatan_olahraga=_opsional("CATATAN_OLAHRAGA", "-"),
         fitur_budget=_opsional("FITUR_BUDGET", "false").lower() in ("1", "true", "ya", "on"),
+        fitur_makanan=_opsional("FITUR_MAKANAN", "false").lower() in ("1", "true", "ya", "on"),
     )

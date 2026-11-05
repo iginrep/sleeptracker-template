@@ -62,15 +62,16 @@ def kirim_laporan(cfg, db: Database, tg: Telegram, hari_ini) -> None:
     if metrik.ada_data_tidur:
         db.simpan_metrik({**metrik.ke_dict(), "tingkat_pulih": rek.tingkat})
 
-    budget = status_budget(db, hari_ini) if cfg.fitur_budget else None
+    # Budget hanya relevan kalau saran makanan aktif.
+    budget = status_budget(db, hari_ini) if (cfg.fitur_budget and cfg.fitur_makanan) else None
     riwayat = db.metrik_terakhir(7)
     prompt = ai.susun_prompt(metrik, rek, budget, riwayat, cfg.kota,
-                             cfg.catatan_makanan, cfg.catatan_olahraga)
+                             cfg.catatan_makanan, cfg.catatan_olahraga, cfg.fitur_makanan)
     saran = ai.buat_saran(cfg.gemini_api_key, cfg.gemini_model, prompt,
                           cfg.gemini_model_cadangan)
     log.info("Saran AI %s", "berhasil" if saran else "tidak tersedia")
 
-    tg.kirim(susun_laporan(metrik, rek, budget, saran, catatan))
+    tg.kirim(susun_laporan(metrik, rek, budget, saran, catatan, cfg.fitur_makanan))
     # Tandai "sudah terkirim" hanya kalau laporan berisi data tidur. Jadi laporan
     # uji coba atau /laporan sebelum jam sinkron tidak membatalkan laporan pagi.
     if metrik.ada_data_tidur:

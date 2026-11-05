@@ -116,7 +116,8 @@ Tab **Variables** (bukan rahasia, opsional):
 | `CATATAN_OLAHRAGA` | `lari 3x seminggu, persiapan 10K` |
 | `GEMINI_MODEL` | kosongkan untuk pakai `gemini-flash-latest` |
 | `GEMINI_MODEL_CADANGAN` | kosongkan untuk pakai `gemini-flash-lite-latest` |
-| `FITUR_BUDGET` | `true` untuk mengaktifkan budget makan (default nonaktif) |
+| `FITUR_MAKANAN` | `true` untuk saran menu makan dari AI (default nonaktif) |
+| `FITUR_BUDGET` | `true` untuk mengaktifkan budget makan, butuh `FITUR_MAKANAN=true` (default nonaktif) |
 
 ### 9. Tes di GitHub
 

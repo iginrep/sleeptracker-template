@@ -18,23 +18,36 @@ from .recovery import Rekomendasi
 log = logging.getLogger(__name__)
 
 SYSTEM_PROMPT = """Kamu adalah asisten kesehatan pribadi yang praktis.
-Tugasmu menulis bagian saran untuk laporan pagi di Telegram, dalam Bahasa Indonesia santai.
+Tugasmu menulis bagian catatan untuk laporan pagi di Telegram, dalam Bahasa Indonesia santai.
 
-Aturan:
-1. Keputusan latihan SUDAH DITENTUKAN oleh sistem. Jangan mengubah intensitasnya,
-   cukup jelaskan dalam 1-2 kalimat kenapa itu masuk akal berdasarkan data.
-2. Rekomendasikan menu makan untuk sarapan, makan siang, dan makan malam yang
-   realistis dibeli atau dimasak di kota pengguna.
-3. Sesuaikan gizi dengan kondisi pemulihan: pemulihan rendah butuh protein cukup,
-   cairan, dan makanan yang mudah dicerna. Hari latihan berat butuh karbohidrat lebih.
-4. Patuhi catatan makanan pengguna (alergi, pantangan, preferensi).
-5. Tulis teks biasa tanpa Markdown (tanpa *, #, atau _). Boleh pakai emoji secukupnya.
-6. Maksimal 150 kata. Jangan memberi diagnosis medis.
-7. Kalau data tidur tidak tersedia, jangan menebak angkanya.
+Aturan umum:
+1. Keputusan latihan SUDAH DITENTUKAN oleh sistem. Jangan mengubah intensitasnya.
+2. Ikuti bagian TUGAS di pesan pengguna, termasuk batas jumlah kata.
+3. Tulis teks biasa tanpa Markdown (tanpa *, #, atau _). Boleh pakai emoji secukupnya.
+4. Jangan memberi diagnosis medis.
+5. Kalau data tidur tidak tersedia, jangan menebak angkanya.
 """
 
+TUGAS_TANPA_MAKANAN = """TUGAS
+Tulis 2-3 kalimat (maksimal 60 kata):
+- Artikan kondisi tidur dan pemulihan pagi ini, bandingkan dengan tren 7 hari kalau ada.
+- Jelaskan singkat kenapa latihan yang ditentukan sistem masuk akal.
+- Beri satu tips praktis untuk hari ini (mis. hidrasi, jam tidur malam nanti, pemanasan).
+JANGAN membahas makanan atau menu."""
+
+TUGAS_DENGAN_MAKANAN = """TUGAS
+Tulis maksimal 150 kata:
+- Jelaskan dalam 1-2 kalimat kenapa latihan yang ditentukan sistem masuk akal.
+- Rekomendasikan menu sarapan, makan siang, dan makan malam yang realistis dibeli
+  atau dimasak di kota pengguna.
+- Sesuaikan gizi dengan pemulihan: pemulihan rendah butuh protein cukup, cairan, dan
+  makanan mudah dicerna. Hari latihan berat butuh karbohidrat lebih.
+- Patuhi catatan makanan pengguna (alergi, pantangan, preferensi)."""
+
 # Percobaan ulang kalau server Google sibuk (error 5xx) atau kena limit (429).
-JEDA_PERCOBAAN = (0, 10, 30)  # detik sebelum percobaan ke-1, ke-2, ke-3
+JEDA_PERCOBAAN = (0, 5, 15)   # detik sebelum percobaan ke-1, ke-2, ke-3
+BATAS_WAKTU_REQUEST_MS = 30_000  # satu request paling lama 30 detik
+BATAS_TOTAL_DETIK = 120          # semua percobaan (termasuk model cadangan) maks 2 menit
 
 
 def _fmt(nilai, satuan: str = "") -> str:
@@ -43,14 +56,16 @@ def _fmt(nilai, satuan: str = "") -> str:
 
 def susun_prompt(m: MetrikHarian, rek: Rekomendasi, b: StatusBudget | None,
                  riwayat: list[dict], kota: str, catatan_makanan: str,
-                 catatan_olahraga: str) -> str:
+                 catatan_olahraga: str, makanan: bool = True) -> str:
     tren = ", ".join(
         f"{r['tanggal']}: skor {r.get('sleep_score') or '-'}, BB {r.get('body_battery') or '-'}"
         for r in riwayat
     ) or "belum ada"
+    konteks_makanan = (f"- Kota: {kota}\n- Catatan makanan: {catatan_makanan}\n"
+                       if makanan else "")
 
     bagian_budget = ""
-    if b is not None:
+    if makanan and b is not None:
         bagian_budget = f"""
 BUDGET MAKAN
 - Jatah hari ini: {rupiah(b.jatah_hari_ini)}
@@ -71,15 +86,16 @@ KEPUTUSAN SISTEM
 - Latihan hari ini: {rek.latihan}
 {bagian_budget}
 KONTEKS PENGGUNA
-- Kota: {kota}
-- Catatan makanan: {catatan_makanan}
 - Kebiasaan olahraga: {catatan_olahraga}
+{konteks_makanan}
+{TUGAS_DENGAN_MAKANAN if makanan else TUGAS_TANPA_MAKANAN}"""
 
-Tulis saran latihan singkat dan rencana makan hari ini."""
 
-
-def _coba_model(client: genai.Client, model: str, prompt: str) -> str | None:
+def _coba_model(client: genai.Client, model: str, prompt: str, tenggat: float) -> str | None:
     for i, jeda in enumerate(JEDA_PERCOBAAN, start=1):
+        if time.monotonic() + jeda >= tenggat:
+            log.warning("Gemini (%s): batas waktu total tercapai", model)
+            return None
         if jeda:
             time.sleep(jeda)
         try:
@@ -109,12 +125,20 @@ def buat_saran(api_key: str, model: str, prompt: str,
                model_cadangan: str | None = None) -> str | None:
     """Kembalikan teks saran, atau None kalau Gemini gagal (laporan tetap dikirim)."""
     try:
-        client = genai.Client(api_key=api_key)
+        client = genai.Client(
+            api_key=api_key,
+            http_options=types.HttpOptions(
+                timeout=BATAS_WAKTU_REQUEST_MS,
+                # Percobaan ulang diatur sendiri di atas, jadi bawaan SDK dimatikan.
+                retry_options=types.HttpRetryOptions(attempts=1),
+            ),
+        )
     except Exception as e:  # noqa: BLE001
         log.warning("Gemini client gagal dibuat: %s", type(e).__name__)
         return None
-    hasil = _coba_model(client, model, prompt)
+    tenggat = time.monotonic() + BATAS_TOTAL_DETIK
+    hasil = _coba_model(client, model, prompt, tenggat)
     if hasil is None and model_cadangan and model_cadangan != model:
         log.info("Mencoba model cadangan")
-        hasil = _coba_model(client, model_cadangan, prompt)
+        hasil = _coba_model(client, model_cadangan, prompt, tenggat)
     return hasil

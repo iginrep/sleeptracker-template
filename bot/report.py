@@ -25,7 +25,8 @@ def bagian_budget(b: StatusBudget) -> str:
 
 
 def susun_laporan(m: MetrikHarian, rek: Rekomendasi, b: StatusBudget | None,
-                  saran_ai: str | None, catatan_garmin: str | None = None) -> str:
+                  saran_ai: str | None, catatan_garmin: str | None = None,
+                  makanan: bool = False) -> str:
     t = m.tanggal
     baris = [f"☀️ Laporan Pagi, {HARI[t.weekday()]} {t.strftime('%d/%m/%Y')}", ""]
 
@@ -48,11 +49,11 @@ def susun_laporan(m: MetrikHarian, rek: Rekomendasi, b: StatusBudget | None,
     ]
     if b is not None:
         baris += [bagian_budget(b), ""]
+    judul = "🍽️ SARAN DARI AI" if makanan else "🤖 CATATAN AI"
     if saran_ai:
-        baris += ["🍽️ SARAN DARI AI", saran_ai, ""]
+        baris += [judul, saran_ai, ""]
     else:
-        baris += ["🍽️ Saran AI sedang tidak tersedia. Pilih makanan dengan protein cukup "
-                  "dan sayur.", ""]
+        baris += [f"{judul}\nSedang tidak tersedia hari ini.", ""]
     if b is not None:
         baris.append("Catat jajan: /catat 25000 nasi padang  |  Bantuan: /help")
     else:

@@ -61,7 +61,7 @@ class TesGeminiRetry(unittest.TestCase):
 
     def jalankan(self, gagal):
         c = ClientPalsu(gagal)
-        ai.genai.Client = lambda api_key: c
+        ai.genai.Client = lambda api_key, http_options=None: c
         return ai.buat_saran("k", "utama", "p", "cadangan"), c.panggilan
 
     def test_berhasil_setelah_retry(self):
@@ -81,3 +81,26 @@ class TesGeminiRetry(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TesTanpaMakanan(unittest.TestCase):
+    def test_prompt_tanpa_makanan(self):
+        m = MetrikHarian(tanggal=date(2026, 11, 6), sleep_score=75)
+        p = ai.susun_prompt(m, tentukan_rekomendasi(m), None, [], "Bandung", "halal", "lari",
+                            makanan=False)
+        self.assertIn("JANGAN membahas makanan", p)
+        self.assertNotIn("Bandung", p)
+        self.assertNotIn("halal", p)
+
+    def test_prompt_dengan_makanan(self):
+        m = MetrikHarian(tanggal=date(2026, 11, 6))
+        p = ai.susun_prompt(m, tentukan_rekomendasi(m), None, [], "Bandung", "halal", "lari",
+                            makanan=True)
+        self.assertIn("menu sarapan", p)
+        self.assertIn("Bandung", p)
+
+    def test_judul_laporan(self):
+        m = MetrikHarian(tanggal=date(2026, 11, 6))
+        r = tentukan_rekomendasi(m)
+        self.assertIn("CATATAN AI", susun_laporan(m, r, None, "x"))
+        self.assertIn("SARAN DARI AI", susun_laporan(m, r, None, "x", makanan=True))
