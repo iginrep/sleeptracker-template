@@ -1,0 +1,42 @@
+name: Sinkron Perintah Telegram
+
+on:
+  schedule:
+    # Setiap 3 jam setelah jendela laporan pagi selesai (UTC). Dalam WIB:
+    # 11.17, 14.17, 17.17, 20.17, 23.17
+    # (antara 06.00-10.00 perintah sudah diproses oleh workflow Laporan Pagi)
+    - cron: "17 4,7,10,13,16 * * *"
+  workflow_dispatch: {}
+
+concurrency:
+  group: sleeptracker
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  sinkron:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - run: python main.py sinkron
+        env:
+          GARMIN_PERSONAL_API_KEY: ${{ secrets.GARMIN_PERSONAL_API_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_MODEL: ${{ vars.GEMINI_MODEL }}
+          GEMINI_MODEL_CADANGAN: ${{ vars.GEMINI_MODEL_CADANGAN }}
+          FITUR_BUDGET: ${{ vars.FITUR_BUDGET }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          KOTA: ${{ vars.KOTA }}
+          CATATAN_MAKANAN: ${{ vars.CATATAN_MAKANAN }}
+          CATATAN_OLAHRAGA: ${{ vars.CATATAN_OLAHRAGA }}

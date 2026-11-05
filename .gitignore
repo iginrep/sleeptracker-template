@@ -1,0 +1,16 @@
+# Kredensial: JANGAN PERNAH di-commit
+.env
+*.key
+
+# Data pribadi hasil uji coba lokal
+samples/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+.pytest_cache/
+
+# Editor
+.vscode/

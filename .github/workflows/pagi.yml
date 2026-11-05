@@ -1,0 +1,45 @@
+name: Laporan Pagi
+
+on:
+  schedule:
+    # Cron GitHub memakai UTC (WIB = UTC + 7). Menit 07 dan 37 sengaja dipilih
+    # karena jadwal di menit 00 paling sering telat.
+    # Cek tiap 30 menit: 06.07, 06.37, 07.07, ... 09.37 WIB
+    - cron: "7,37 23 * * *"
+    - cron: "7,37 0-2 * * *"
+    # Pengecekan terakhir 10.07 WIB: laporan tetap dikirim walau data belum ada.
+    - cron: "7 3 * * *"
+  workflow_dispatch: {}   # tombol "Run workflow" untuk tes manual
+
+concurrency:
+  group: sleeptracker
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  laporan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - run: python main.py pantau
+        env:
+          GARMIN_PERSONAL_API_KEY: ${{ secrets.GARMIN_PERSONAL_API_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_MODEL: ${{ vars.GEMINI_MODEL }}
+          GEMINI_MODEL_CADANGAN: ${{ vars.GEMINI_MODEL_CADANGAN }}
+          FITUR_BUDGET: ${{ vars.FITUR_BUDGET }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          KOTA: ${{ vars.KOTA }}
+          CATATAN_MAKANAN: ${{ vars.CATATAN_MAKANAN }}
+          CATATAN_OLAHRAGA: ${{ vars.CATATAN_OLAHRAGA }}

@@ -1,0 +1,7 @@
+# Versi dikunci supaya tidak otomatis naik tanpa diperiksa dulu.
+garmin-connect-personal-api-python==1.0.0
+google-genai==2.34.0
+requests==2.34.2
+python-dotenv==1.2.4
+# Windows tidak punya database zona waktu bawaan, jadi butuh paket ini.
+tzdata==2026.6
