@@ -35,7 +35,7 @@ log = logging.getLogger("main")
 JAM_BATAS_LAPORAN = 10
 
 
-def kirim_laporan(cfg, db: Database, tg: Telegram, hari_ini) -> None:
+def kirim_laporan(cfg, db: Database, tg: Telegram, hari_ini, tandai_paksa: bool = False) -> None:
     catatan = None
     try:
         metrik = ambil_metrik(cfg.garmin_api_key, hari_ini)
@@ -75,7 +75,9 @@ def kirim_laporan(cfg, db: Database, tg: Telegram, hari_ini) -> None:
     tg.kirim(susun_laporan(metrik, rek, budget, saran, catatan, cfg.fitur_makanan))
     # Tandai "sudah terkirim" hanya kalau laporan berisi data tidur. Jadi laporan
     # uji coba atau /laporan sebelum jam sinkron tidak membatalkan laporan pagi.
-    if metrik.ada_data_tidur:
+    # tandai_paksa dipakai saat batas jam tercapai, supaya pemicu berikutnya
+    # (mis. cron-job.org jam 10.30) tidak mengirim laporan kosong berulang kali.
+    if metrik.ada_data_tidur or tandai_paksa:
         db.set_setting("laporan_terakhir", hari_ini.isoformat())
     log.info("Laporan terkirim")
 
@@ -119,7 +121,8 @@ def main() -> int:
     if mode == "pagi" or hasil.minta_laporan:
         kirim_laporan(cfg, db, tg, hari_ini)
     elif mode == "pantau" and perlu_kirim_sekarang(cfg, db, sekarang):
-        kirim_laporan(cfg, db, tg, hari_ini)
+        kirim_laporan(cfg, db, tg, hari_ini,
+                      tandai_paksa=sekarang.hour >= JAM_BATAS_LAPORAN)
     return 0
 
 

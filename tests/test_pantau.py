@@ -61,3 +61,34 @@ class TesPantau(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TesTandaBatasJam(unittest.TestCase):
+    """Setelah batas jam, laporan tanpa data hanya boleh terkirim sekali."""
+
+    def test_tidak_berulang_setelah_batas(self):
+        terkirim = []
+
+        class Db:
+            s = {}
+            def get_setting(self, k, d=None): return self.s.get(k, d)
+            def set_setting(self, k, v): self.s[k] = v
+            def metrik_terakhir(self, n): return []
+
+        db = Db()
+        asli = (main.ambil_metrik, main.ai.buat_saran)
+        main.ambil_metrik = lambda k, t: main.MetrikHarian(tanggal=t)   # data tidur kosong
+        main.ai.buat_saran = lambda *a, **kw: None
+        tg = SimpleNamespace(kirim=lambda teks: terkirim.append(teks))
+        cfg = SimpleNamespace(garmin_api_key="x", fitur_budget=False, fitur_makanan=False,
+                              kota="", catatan_makanan="", catatan_olahraga="",
+                              gemini_api_key="", gemini_model="", gemini_model_cadangan="")
+        try:
+            for menit in (0, 30):  # pemicu 10.00 dan 10.30
+                waktu = jam(10, menit)
+                if main.perlu_kirim_sekarang(cfg, db, waktu):
+                    main.kirim_laporan(cfg, db, tg, waktu.date(),
+                                       tandai_paksa=waktu.hour >= main.JAM_BATAS_LAPORAN)
+        finally:
+            main.ambil_metrik, main.ai.buat_saran = asli
+        self.assertEqual(len(terkirim), 1)
