@@ -26,6 +26,9 @@ Aturan umum:
 3. Tulis teks biasa tanpa Markdown (tanpa *, #, atau _). Boleh pakai emoji secukupnya.
 4. Jangan memberi diagnosis medis.
 5. Kalau data tidur tidak tersedia, jangan menebak angkanya.
+6. Kalau menyebut angka, salin persis dari data beserta satuannya. Jangan mengubah,
+   menggabungkan, atau menghitung ulang angka. Sleep score tidak punya satuan jam.
+7. Kalau tren tertulis "belum cukup data", jangan membandingkan dengan tren.
 """
 
 TUGAS_TANPA_MAKANAN = """TUGAS
@@ -54,13 +57,31 @@ def _fmt(nilai, satuan: str = "") -> str:
     return "tidak tersedia" if nilai is None else f"{nilai}{satuan}"
 
 
+def format_durasi(jam: float | None) -> str | None:
+    """4.92 -> '4 jam 55 menit'."""
+    if jam is None:
+        return None
+    total_menit = round(jam * 60)
+    return f"{total_menit // 60} jam {total_menit % 60} menit"
+
+
+def ringkas_tren(riwayat: list[dict], minimal_hari: int = 3) -> str:
+    """Ringkasan hari-hari SEBELUM hari ini. Riwayat tidak boleh berisi hari ini."""
+    if len(riwayat) < minimal_hari:
+        return f"belum cukup data (baru {len(riwayat)} hari tercatat sebelum hari ini)"
+
+    def rata(kolom: str) -> str:
+        nilai = [r[kolom] for r in riwayat if r.get(kolom) is not None]
+        return f"{sum(nilai) / len(nilai):.0f}" if nilai else "-"
+
+    return (f"rata-rata {len(riwayat)} hari sebelumnya: sleep score {rata('sleep_score')}, "
+            f"Body Battery saat bangun {rata('body_battery')}, HRV {rata('hrv_semalam')} ms")
+
+
 def susun_prompt(m: MetrikHarian, rek: Rekomendasi, b: StatusBudget | None,
                  riwayat: list[dict], kota: str, catatan_makanan: str,
                  catatan_olahraga: str, makanan: bool = True) -> str:
-    tren = ", ".join(
-        f"{r['tanggal']}: skor {r.get('sleep_score') or '-'}, BB {r.get('body_battery') or '-'}"
-        for r in riwayat
-    ) or "belum ada"
+    tren = ringkas_tren(riwayat)
     konteks_makanan = (f"- Kota: {kota}\n- Catatan makanan: {catatan_makanan}\n"
                        if makanan else "")
 
@@ -75,11 +96,11 @@ BUDGET MAKAN
 
     return f"""DATA PAGI INI
 - Sleep score: {_fmt(m.sleep_score)}
-- Durasi tidur: {_fmt(m.sleep_jam, ' jam')}
+- Durasi tidur: {_fmt(format_durasi(m.sleep_jam))}
 - HRV semalam: {_fmt(m.hrv_semalam, ' ms')} (status: {_fmt(m.hrv_status)})
-- Body Battery: {_fmt(m.body_battery)}
+- Body Battery saat bangun: {_fmt(m.body_battery)}
 - Resting HR: {_fmt(m.resting_hr, ' bpm')}
-- Tren 7 hari terakhir: {tren}
+- Tren: {tren}
 
 KEPUTUSAN SISTEM
 - Tingkat pemulihan: {rek.tingkat}
@@ -103,7 +124,7 @@ def _coba_model(client: genai.Client, model: str, prompt: str, tenggat: float) -
                 model=model,
                 contents=prompt,
                 config=types.GenerateContentConfig(system_instruction=SYSTEM_PROMPT,
-                                                   temperature=0.7),
+                                                   temperature=0.3),
             )
             teks = (resp.text or "").strip()
             if teks:

@@ -64,7 +64,8 @@ def kirim_laporan(cfg, db: Database, tg: Telegram, hari_ini) -> None:
 
     # Budget hanya relevan kalau saran makanan aktif.
     budget = status_budget(db, hari_ini) if (cfg.fitur_budget and cfg.fitur_makanan) else None
-    riwayat = db.metrik_terakhir(7)
+    # Tren hanya dari hari-hari SEBELUM hari ini, supaya tidak membandingkan dengan diri sendiri.
+    riwayat = [r for r in db.metrik_terakhir(8) if r.get("tanggal") != hari_ini.isoformat()][:7]
     prompt = ai.susun_prompt(metrik, rek, budget, riwayat, cfg.kota,
                              cfg.catatan_makanan, cfg.catatan_olahraga, cfg.fitur_makanan)
     saran = ai.buat_saran(cfg.gemini_api_key, cfg.gemini_model, prompt,

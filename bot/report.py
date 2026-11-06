@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from .ai import format_durasi
 from .budget import StatusBudget, rupiah
 from .garmin_data import MetrikHarian
 from .recovery import Rekomendasi
@@ -35,9 +36,9 @@ def susun_laporan(m: MetrikHarian, rek: Rekomendasi, b: StatusBudget | None,
         baris.append(catatan_garmin)
     baris += [
         f"Sleep score: {_v(m.sleep_score)}",
-        f"Durasi tidur: {_v(m.sleep_jam, ' jam')}",
+        f"Durasi tidur: {_v(format_durasi(m.sleep_jam))}",
         f"HRV semalam: {_v(m.hrv_semalam, ' ms')} ({_v(m.hrv_status)})",
-        f"Body Battery: {_v(m.body_battery)}",
+        f"Body Battery saat bangun: {_v(m.body_battery)}",
         f"Resting HR: {_v(m.resting_hr, ' bpm')}",
         "",
         f"{IKON.get(rek.tingkat, '⚪')} Pemulihan: {rek.tingkat.upper()}",

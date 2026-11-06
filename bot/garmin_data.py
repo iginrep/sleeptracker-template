@@ -102,20 +102,50 @@ def olah_respons(tanggal: date, mentah: dict[str, Any]) -> MetrikHarian:
     if detik:
         m.sleep_jam = round(detik / 3600, 2)
 
-    m.hrv_semalam = _angka(cari(hrv, "lastNightAvg", "lastNightAverage", "weeklyAvg"))
+    # Hanya rata-rata semalam. weeklyAvg sengaja tidak dipakai sebagai cadangan
+    # karena artinya berbeda (rata-rata 7 hari).
+    m.hrv_semalam = _angka(cari(hrv, "lastNightAvg", "lastNightAverage"))
     status = cari(hrv, "status", "hrvStatus")
     m.hrv_status = str(status).upper() if isinstance(status, str) else None
 
+    # Format asli: daily_summary.data[].heartRate.restingValue
     m.resting_hr = _angka(
-        cari(ringkasan, "restingHeartRate", "restingHeartRateInBeatsPerMinute")
+        cari(ringkasan, "restingValue", "restingHeartRate", "restingHeartRateInBeatsPerMinute")
         or cari(tidur, "restingHeartRate")
     )
 
-    m.body_battery = _angka(
-        cari(ringkasan, "bodyBatteryAtWakeTime", "bodyBatteryMostRecentValue", "bodyBatteryHighestValue")
-        or cari(bb, "bodyBatteryAtWakeTime", "endOfDayBodyBatteryValue", "charged")
-    )
+    m.body_battery = body_battery_saat_bangun(tidur, bb, ringkasan)
     return m
+
+
+def body_battery_saat_bangun(tidur: Any, bb: Any, ringkasan: Any) -> int | None:
+    """Level Body Battery saat bangun.
+
+    Cara utama: ambil titik di bodyBatteryValuesArray ([timestamp_ms, level]) yang
+    paling dekat dengan sleepEndTimestampGMT. Cadangan: nilai tertinggi hari itu
+    (bodyBattery.maxValue), yang di pagi hari biasanya sama dengan level saat bangun.
+    Field "charged" TIDAK dipakai karena itu jumlah energi yang terisi, bukan level.
+    """
+    akhir_tidur = cari(tidur, "sleepEndTimestampGMT")
+    deret = cari(bb, "bodyBatteryValuesArray")
+    if isinstance(akhir_tidur, (int, float)) and isinstance(deret, list):
+        terbaik, selisih_terbaik = None, None
+        for titik in deret:
+            if not (isinstance(titik, list) and len(titik) >= 2):
+                continue
+            ts, level = titik[0], titik[-1]
+            if not isinstance(ts, (int, float)) or not isinstance(level, (int, float)):
+                continue
+            selisih = abs(ts - akhir_tidur)
+            if selisih_terbaik is None or selisih < selisih_terbaik:
+                terbaik, selisih_terbaik = level, selisih
+        if terbaik is not None and selisih_terbaik <= 90 * 60 * 1000:
+            return _angka(terbaik)
+
+    body_battery = cari(ringkasan, "bodyBattery")
+    if isinstance(body_battery, dict):
+        return _angka(body_battery.get("maxValue"))
+    return _angka(cari(ringkasan, "bodyBatteryAtWakeTime", "bodyBatteryHighestValue"))
 
 
 # ---------------------------------------------------------------------------
