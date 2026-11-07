@@ -11,8 +11,12 @@ CFG = SimpleNamespace(garmin_api_key="x")
 
 
 class DbPalsu:
-    def __init__(self, terakhir=None):
-        self.s = {"laporan_terakhir": terakhir} if terakhir else {}
+    def __init__(self, terakhir=None, batas=None):
+        self.s = {}
+        if terakhir:
+            self.s["laporan_terakhir"] = terakhir
+        if batas:
+            self.s["laporan_batas"] = batas
 
     def get_setting(self, k, default=None):
         return self.s.get(k, default)
@@ -52,15 +56,11 @@ class TesPantau(unittest.TestCase):
         self.set_tidur(False)
         self.assertTrue(main.perlu_kirim_sekarang(CFG, DbPalsu(), jam(10)))
 
-    def test_garmin_error_tetap_kirim_supaya_ada_peringatan(self):
+    def test_garmin_error_tidak_kirim_berulang(self):
         def gagal(k, t):
             raise RuntimeError("x")
         main.tidur_sudah_tersedia = gagal
-        self.assertTrue(main.perlu_kirim_sekarang(CFG, DbPalsu(), jam(6)))
-
-
-if __name__ == "__main__":
-    unittest.main()
+        self.assertFalse(main.perlu_kirim_sekarang(CFG, DbPalsu(), jam(6)))
 
 
 class TesTandaBatasJam(unittest.TestCase):
@@ -76,8 +76,9 @@ class TesTandaBatasJam(unittest.TestCase):
             def metrik_terakhir(self, n): return []
 
         db = Db()
-        asli = (main.ambil_metrik, main.ai.buat_saran)
+        asli = (main.ambil_metrik, main.ai.buat_saran, main.tidur_sudah_tersedia)
         main.ambil_metrik = lambda k, t: main.MetrikHarian(tanggal=t)   # data tidur kosong
+        main.tidur_sudah_tersedia = lambda k, t: False
         main.ai.buat_saran = lambda *a, **kw: None
         tg = SimpleNamespace(kirim=lambda teks: terkirim.append(teks))
         cfg = SimpleNamespace(garmin_api_key="x", fitur_budget=False, fitur_makanan=False,
@@ -90,5 +91,32 @@ class TesTandaBatasJam(unittest.TestCase):
                     main.kirim_laporan(cfg, db, tg, waktu.date(),
                                        tandai_paksa=waktu.hour >= main.JAM_BATAS_LAPORAN)
         finally:
-            main.ambil_metrik, main.ai.buat_saran = asli
+            main.ambil_metrik, main.ai.buat_saran, main.tidur_sudah_tersedia = asli
         self.assertEqual(len(terkirim), 1)
+
+
+class TesSusulan(unittest.TestCase):
+    def setUp(self):
+        self.asli = main.tidur_sudah_tersedia
+
+    def tearDown(self):
+        main.tidur_sudah_tersedia = self.asli
+
+    def test_susulan_saat_data_muncul_setelah_batas(self):
+        main.tidur_sudah_tersedia = lambda k, t: True
+        db = DbPalsu(batas="2026-11-06")
+        self.assertTrue(main.perlu_kirim_sekarang(CFG, db, jam(11)))
+
+    def test_tidak_susulan_kalau_data_belum_ada(self):
+        main.tidur_sudah_tersedia = lambda k, t: False
+        db = DbPalsu(batas="2026-11-06")
+        self.assertFalse(main.perlu_kirim_sekarang(CFG, db, jam(11)))
+
+    def test_tidak_kirim_lagi_setelah_lengkap(self):
+        main.tidur_sudah_tersedia = lambda k, t: True
+        db = DbPalsu(terakhir="2026-11-06", batas="2026-11-06")
+        self.assertFalse(main.perlu_kirim_sekarang(CFG, db, jam(15)))
+
+
+if __name__ == "__main__":
+    unittest.main()

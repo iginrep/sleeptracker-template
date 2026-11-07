@@ -133,8 +133,10 @@ Tab **Actions** > **Laporan Pagi** > **Run workflow**. Kalau pesan masuk ke Tele
 | Sinkron | 11.17, 14.17, 17.17, 20.17, 23.17 | proses perintah (`/catat`, `/sisa`, dll.) |
 
 Cara kerja Laporan Pagi: begitu jam Garmin tersinkron ke HP setelah kamu bangun,
-laporan dikirim pada pengecekan berikutnya. Kalau sampai 10.07 data belum ada,
-laporan tetap dikirim dengan catatan. Semua berjalan di server GitHub, laptop boleh mati.
+laporan dikirim pada pengecekan berikutnya. Kalau sampai jam 10 data belum ada,
+laporan tetap dikirim dengan catatan, lalu bot mengirim SATU laporan susulan yang
+lengkap begitu data tidur muncul (berlaku juga untuk run Sinkron di siang/malam hari).
+Semua berjalan di server GitHub, laptop boleh mati.
 
 Jadwal GitHub bisa telat beberapa menit. Ubah jam di file `.github/workflows/*.yml`
 (ingat cron memakai UTC, WIB = UTC + 7). Kalau batas jam diubah, sesuaikan juga

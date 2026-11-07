@@ -4,7 +4,8 @@ Cara pakai:
     python main.py pantau    -> dipakai jadwal pagi: kirim laporan begitu data tidur
                                 sudah tersinkron, atau saat batas jam tercapai
     python main.py pagi      -> paksa kirim laporan sekarang
-    python main.py sinkron   -> proses pesan masuk saja (dan kirim laporan kalau diminta /laporan)
+    python main.py sinkron   -> proses pesan masuk, plus kirim laporan susulan kalau data
+                                tidur baru muncul setelah batas jam
 """
 
 from __future__ import annotations
@@ -73,30 +74,41 @@ def kirim_laporan(cfg, db: Database, tg: Telegram, hari_ini, tandai_paksa: bool 
     log.info("Saran AI %s", "berhasil" if saran else "tidak tersedia")
 
     tg.kirim(susun_laporan(metrik, rek, budget, saran, catatan, cfg.fitur_makanan))
-    # Tandai "sudah terkirim" hanya kalau laporan berisi data tidur. Jadi laporan
-    # uji coba atau /laporan sebelum jam sinkron tidak membatalkan laporan pagi.
-    # tandai_paksa dipakai saat batas jam tercapai, supaya pemicu berikutnya
-    # (mis. cron-job.org jam 10.30) tidak mengirim laporan kosong berulang kali.
-    if metrik.ada_data_tidur or tandai_paksa:
+    # Dua penanda terpisah:
+    # - laporan_terakhir: laporan LENGKAP (ada data tidur) sudah terkirim hari ini.
+    #   Setelah ini mode pantau tidak mengirim apa-apa lagi.
+    # - laporan_batas: laporan tanpa data tidur sudah terkirim karena batas jam.
+    #   Mode pantau tetap mengecek, lalu mengirim SATU laporan susulan begitu
+    #   data tidur muncul (mis. kamu bangun setelah jam 10).
+    if metrik.ada_data_tidur:
         db.set_setting("laporan_terakhir", hari_ini.isoformat())
+    elif tandai_paksa:
+        db.set_setting("laporan_batas", hari_ini.isoformat())
     log.info("Laporan terkirim")
 
 
 def perlu_kirim_sekarang(cfg, db: Database, sekarang: datetime) -> bool:
-    """Untuk mode pantau: kirim kalau belum terkirim hari ini DAN
-    (data tidur sudah ada ATAU sudah lewat batas jam)."""
-    hari_ini = sekarang.date()
-    if db.get_setting("laporan_terakhir") == hari_ini.isoformat():
-        log.info("Laporan hari ini sudah terkirim")
+    """Untuk mode pantau.
+
+    - Laporan lengkap sudah terkirim hari ini: tidak kirim.
+    - Lewat batas jam dan belum ada laporan apa pun: kirim apa adanya (sekali).
+    - Selain itu: kirim hanya kalau data tidur sudah tersedia
+      (laporan pagi normal, atau laporan susulan setelah batas jam).
+    """
+    hari_ini = sekarang.date().isoformat()
+    if db.get_setting("laporan_terakhir") == hari_ini:
+        log.info("Laporan lengkap hari ini sudah terkirim")
         return False
-    if sekarang.hour >= JAM_BATAS_LAPORAN:
+    if sekarang.hour >= JAM_BATAS_LAPORAN and db.get_setting("laporan_batas") != hari_ini:
         log.info("Batas jam tercapai, laporan dikirim apa adanya")
         return True
     try:
-        ada = tidur_sudah_tersedia(cfg.garmin_api_key, hari_ini)
-    except Exception as e:  # noqa: BLE001 - biar laporan lengkap yang menangani & melapor
+        ada = tidur_sudah_tersedia(cfg.garmin_api_key, sekarang.date())
+    except Exception as e:  # noqa: BLE001
+        # Tidak langsung mengirim, supaya error tidak dikirim tiap 30 menit.
+        # Masalah Garmin tetap dilaporkan lewat laporan batas jam.
         log.warning("Cek data tidur gagal: %s", type(e).__name__)
-        return True
+        return False
     log.info("Data tidur %s", "sudah ada" if ada else "belum ada, cek lagi nanti")
     return ada
 
@@ -120,7 +132,9 @@ def main() -> int:
 
     if mode == "pagi" or hasil.minta_laporan:
         kirim_laporan(cfg, db, tg, hari_ini)
-    elif mode == "pantau" and perlu_kirim_sekarang(cfg, db, sekarang):
+    elif mode in ("pantau", "sinkron") and perlu_kirim_sekarang(cfg, db, sekarang):
+        # Mode sinkron juga ikut memantau, supaya laporan susulan tetap terkirim
+        # di luar jendela pagi.
         kirim_laporan(cfg, db, tg, hari_ini,
                       tandai_paksa=sekarang.hour >= JAM_BATAS_LAPORAN)
     return 0
