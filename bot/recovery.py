@@ -96,4 +96,6 @@ def tentukan_rekomendasi(m: MetrikHarian) -> Rekomendasi:
     else:
         tingkat = "tinggi"
 
+    if not m.ada_data_tidur:
+        alasan.append("tanpa data tidur, kurang akurat")
     return Rekomendasi(tingkat, LATIHAN[tingkat], alasan)

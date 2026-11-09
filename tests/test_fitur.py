@@ -104,3 +104,18 @@ class TesTanpaMakanan(unittest.TestCase):
         r = tentukan_rekomendasi(m)
         self.assertIn("CATATAN AI", susun_laporan(m, r, None, "x"))
         self.assertIn("SARAN DARI AI", susun_laporan(m, r, None, "x", makanan=True))
+
+
+class TesTanpaDataTidur(unittest.TestCase):
+    def test_label_dan_catatan(self):
+        m = MetrikHarian(tanggal=date(2026, 11, 9), body_battery=5, resting_hr=62)
+        r = tentukan_rekomendasi(m)
+        self.assertIn("tanpa data tidur, kurang akurat", r.alasan)
+        teks = susun_laporan(m, r, None, "x")
+        self.assertIn("Body Battery tertinggi hari ini: 5", teks)
+        self.assertNotIn("saat bangun", teks)
+
+    def test_label_normal(self):
+        m = MetrikHarian(tanggal=date(2026, 11, 9), sleep_score=62, sleep_jam=6.45, body_battery=70)
+        teks = susun_laporan(m, tentukan_rekomendasi(m), None, "x")
+        self.assertIn("Body Battery saat bangun: 70", teks)

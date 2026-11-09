@@ -98,7 +98,7 @@ BUDGET MAKAN
 - Sleep score: {_fmt(m.sleep_score)}
 - Durasi tidur: {_fmt(format_durasi(m.sleep_jam))}
 - HRV semalam: {_fmt(m.hrv_semalam, ' ms')} (status: {_fmt(m.hrv_status)})
-- Body Battery saat bangun: {_fmt(m.body_battery)}
+- {"Body Battery saat bangun" if m.ada_data_tidur else "Body Battery tertinggi hari ini (data tidur belum ada, jam mungkin tidak dipakai semalam)"}: {_fmt(m.body_battery)}
 - Resting HR: {_fmt(m.resting_hr, ' bpm')}
 - Tren: {tren}
 
