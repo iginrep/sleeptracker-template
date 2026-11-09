@@ -15,7 +15,7 @@ import sys
 from datetime import datetime
 
 from bot import ai
-from bot.commands import proses_pesan_masuk, status_budget
+from bot.commands import HasilProses, proses_pesan_masuk, status_budget
 from bot.config import ZONA_WAKTU, load_config
 from bot.db import Database
 from bot.garmin_data import (GarminAuthError, GarminRateLimitError, MetrikHarian, ambil_metrik,
@@ -125,10 +125,17 @@ def main() -> int:
     sekarang = datetime.now(ZONA_WAKTU)
     hari_ini = sekarang.date()
 
-    hasil = proses_pesan_masuk(db, tg, hari_ini, cfg.fitur_budget)
-    log.info("Perintah diproses: %d", hasil.jumlah_pesan)
-    if hasil.balasan:
-        tg.kirim("\n\n".join(hasil.balasan))
+    try:
+        hasil = proses_pesan_masuk(db, tg, hari_ini, cfg.fitur_budget)
+        log.info("Perintah diproses: %d", hasil.jumlah_pesan)
+        if hasil.balasan:
+            tg.kirim("\n\n".join(hasil.balasan))
+    except Exception as e:  # noqa: BLE001
+        # Gagal membaca perintah tidak boleh menghentikan laporan. Pesan yang belum
+        # terbaca tetap disimpan Telegram dan diproses di run berikutnya.
+        log.warning("Perintah Telegram tidak diproses: %s %s", type(e).__name__,
+                    e if isinstance(e, RuntimeError) else "")
+        hasil = HasilProses()
 
     if mode == "pagi" or hasil.minta_laporan:
         kirim_laporan(cfg, db, tg, hari_ini)

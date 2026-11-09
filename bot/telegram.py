@@ -6,6 +6,8 @@ from typing import Any
 
 import requests
 
+from .jaringan import GagalJaringan, dengan_ulang
+
 BATAS_PANJANG = 4000  # batas Telegram 4096 karakter per pesan
 
 
@@ -16,10 +18,15 @@ class Telegram:
         self.timeout = timeout
 
     def _call(self, metode: str, **data: Any) -> Any:
+        url = f"{self._base}/{metode}"
         try:
-            r = requests.post(f"{self._base}/{metode}", json=data, timeout=self.timeout)
-        except requests.RequestException:
-            # Pesan error asli requests memuat URL yang berisi token, jadi diganti.
+            r = dengan_ulang(
+                lambda: requests.post(url, json=data, timeout=self.timeout),
+                f"Telegram {metode}",
+                # sendMessage tidak diulang saat timeout supaya pesan tidak dobel.
+                ulang_jika_timeout=(metode != "sendMessage"),
+            )
+        except GagalJaringan:
             raise RuntimeError(f"Telegram {metode} gagal (masalah jaringan)") from None
         if not r.ok:
             # URL berisi token, jadi yang ditampilkan hanya nama metode dan status.

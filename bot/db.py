@@ -10,6 +10,8 @@ from typing import Any
 
 import requests
 
+from .jaringan import GagalJaringan, dengan_ulang
+
 
 class Database:
     def __init__(self, url: str, key: str, timeout: float = 20):
@@ -25,8 +27,15 @@ class Database:
         headers = dict(self.headers)
         if prefer:
             headers["Prefer"] = prefer
-        r = requests.request(method, f"{self.base}/{tabel}", headers=headers,
-                             params=params, json=json, timeout=self.timeout)
+        try:
+            # Semua operasi di sini aman diulang (upsert, baca, hapus berdasarkan id).
+            r = dengan_ulang(
+                lambda: requests.request(method, f"{self.base}/{tabel}", headers=headers,
+                                         params=params, json=json, timeout=self.timeout),
+                f"Supabase {method} {tabel}",
+            )
+        except GagalJaringan:
+            raise RuntimeError(f"Supabase {method} {tabel} gagal (masalah jaringan)") from None
         if not r.ok:
             # Tidak menampilkan isi data, hanya status.
             raise RuntimeError(f"Supabase {method} {tabel} gagal (HTTP {r.status_code})")
