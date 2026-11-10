@@ -65,6 +65,37 @@ def format_durasi(jam: float | None) -> str | None:
     return f"{total_menit // 60} jam {total_menit % 60} menit"
 
 
+def format_menit(menit: int | None) -> str | None:
+    """25 -> '25 menit', 83 -> '1 jam 23 menit'."""
+    if menit is None:
+        return None
+    if menit < 60:
+        return f"{menit} menit"
+    return f"{menit // 60} jam {menit % 60} menit"
+
+
+def label_kategori(kategori: str | None) -> str | None:
+    """'POOR' -> 'Poor'."""
+    return kategori.capitalize() if kategori else None
+
+
+def baris_tahap_tidur(m: MetrikHarian) -> list[str]:
+    """Rincian Deep, Light, REM (dengan persen dari total tidur) dan Awake."""
+    tahap = [("Deep", m.deep_menit), ("Light", m.light_menit), ("REM", m.rem_menit)]
+    if all(v is None for _, v in tahap) and m.awake_menit is None:
+        return []
+    total = sum(v for _, v in tahap if v is not None)
+    baris = []
+    for nama, v in tahap:
+        if v is None:
+            continue
+        persen = f" ({round(v / total * 100)}%)" if total else ""
+        baris.append(f"{nama}: {format_menit(v)}{persen}")
+    if m.awake_menit is not None:
+        baris.append(f"Awake: {format_menit(m.awake_menit)}")
+    return baris
+
+
 def ringkas_tren(riwayat: list[dict], minimal_hari: int = 3) -> str:
     """Ringkasan hari-hari SEBELUM hari ini. Riwayat tidak boleh berisi hari ini."""
     if len(riwayat) < minimal_hari:
@@ -95,8 +126,9 @@ BUDGET MAKAN
 """
 
     return f"""DATA PAGI INI
-- Sleep score: {_fmt(m.sleep_score)}
+- Sleep score: {_fmt(m.sleep_score)} (kategori Garmin: {_fmt(label_kategori(m.sleep_kategori))})
 - Durasi tidur: {_fmt(format_durasi(m.sleep_jam))}
+- Tahap tidur: {"; ".join(baris_tahap_tidur(m)) or "tidak tersedia"}
 - HRV semalam: {_fmt(m.hrv_semalam, ' ms')} (status: {_fmt(m.hrv_status)})
 - {"Body Battery saat bangun" if m.ada_data_tidur else "Body Battery tertinggi hari ini (data tidur belum ada, jam mungkin tidak dipakai semalam)"}: {_fmt(m.body_battery)}
 - Resting HR: {_fmt(m.resting_hr, ' bpm')}

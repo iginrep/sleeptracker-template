@@ -10,6 +10,11 @@ create table if not exists daily_metrics (
     body_battery     int,
     resting_hr       int,
     tingkat_pulih    text,
+    sleep_kategori   text,
+    deep_menit       int,
+    light_menit      int,
+    rem_menit        int,
+    awake_menit      int,
     dibuat_pada      timestamptz default now()
 );
 

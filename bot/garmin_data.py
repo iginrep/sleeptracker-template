@@ -40,6 +40,13 @@ class MetrikHarian:
     hrv_status: str | None = None
     body_battery: int | None = None
     resting_hr: int | None = None
+    # Kategori resmi Garmin: EXCELLENT, GOOD, FAIR, POOR (dari sleepScores.overall.qualifierKey)
+    sleep_kategori: str | None = None
+    # Tahap tidur dalam menit
+    deep_menit: int | None = None
+    light_menit: int | None = None
+    rem_menit: int | None = None
+    awake_menit: int | None = None
 
     @property
     def ada_data_tidur(self) -> bool:
@@ -97,6 +104,17 @@ def olah_respons(tanggal: date, mentah: dict[str, Any]) -> MetrikHarian:
     # Sleep score: biasanya di sleepScores.overall.value
     skor = cari(tidur, "overall")
     m.sleep_score = _angka(skor) if skor is not None else _angka(cari(tidur, "sleepScore", "overallSleepScore"))
+    kategori = skor.get("qualifierKey") if isinstance(skor, dict) else None
+    m.sleep_kategori = str(kategori).upper() if kategori else kategori_dari_skor(m.sleep_score)
+
+    def menit(*nama):
+        detik_tahap = _angka(cari(tidur, *nama))
+        return None if detik_tahap is None else round(detik_tahap / 60)
+
+    m.deep_menit = menit("deepSleepSeconds")
+    m.light_menit = menit("lightSleepSeconds")
+    m.rem_menit = menit("remSleepSeconds")
+    m.awake_menit = menit("awakeSleepSeconds")
 
     detik = _angka(cari(tidur, "sleepTimeSeconds", "totalSleepTimeSeconds", "sleepTimeInSeconds"))
     if detik:
@@ -116,6 +134,23 @@ def olah_respons(tanggal: date, mentah: dict[str, Any]) -> MetrikHarian:
 
     m.body_battery = body_battery_saat_bangun(tidur, bb, ringkasan)
     return m
+
+
+def kategori_dari_skor(skor: int | None) -> str | None:
+    """Cadangan kalau Garmin tidak mengirim qualifierKey.
+
+    Mengikuti rentang kategori sleep score Garmin:
+    Excellent 90-100, Good 80-89, Fair 60-79, Poor di bawah 60.
+    """
+    if skor is None:
+        return None
+    if skor >= 90:
+        return "EXCELLENT"
+    if skor >= 80:
+        return "GOOD"
+    if skor >= 60:
+        return "FAIR"
+    return "POOR"
 
 
 def body_battery_saat_bangun(tidur: Any, bb: Any, ringkasan: Any) -> int | None:

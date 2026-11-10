@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from .ai import format_durasi
+from .ai import baris_tahap_tidur, format_durasi, label_kategori
 from .budget import StatusBudget, rupiah
 from .garmin_data import MetrikHarian
 from .recovery import Rekomendasi
@@ -35,8 +35,10 @@ def susun_laporan(m: MetrikHarian, rek: Rekomendasi, b: StatusBudget | None,
     if catatan_garmin:
         baris.append(catatan_garmin)
     baris += [
-        f"Sleep score: {_v(m.sleep_score)}",
+        (f"Sleep score: {_v(m.sleep_score)} ({label_kategori(m.sleep_kategori)})"
+         if m.sleep_score is not None and m.sleep_kategori else f"Sleep score: {_v(m.sleep_score)}"),
         f"Durasi tidur: {_v(format_durasi(m.sleep_jam))}",
+        *[f"  • {b}" for b in baris_tahap_tidur(m)],
         f"HRV semalam: {_v(m.hrv_semalam, ' ms')} ({_v(m.hrv_status)})",
         (f"Body Battery saat bangun: {_v(m.body_battery)}" if m.ada_data_tidur
          else f"Body Battery tertinggi hari ini: {_v(m.body_battery)}"),

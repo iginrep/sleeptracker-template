@@ -61,7 +61,17 @@ def kirim_laporan(cfg, db: Database, tg: Telegram, hari_ini, tandai_paksa: bool 
     rek = tentukan_rekomendasi(metrik)
 
     if metrik.ada_data_tidur:
-        db.simpan_metrik({**metrik.ke_dict(), "tingkat_pulih": rek.tingkat})
+        data = {**metrik.ke_dict(), "tingkat_pulih": rek.tingkat}
+        try:
+            db.simpan_metrik(data)
+        except RuntimeError as e:
+            # Kolom baru (kategori & tahap tidur) belum ada di database.
+            # Simpan kolom lama saja supaya laporan tetap jalan.
+            if "HTTP 400" not in str(e):
+                raise
+            log.warning("Kolom baru belum ada di Supabase, jalankan supabase/migrasi_tahap_tidur.sql")
+            baru = {"sleep_kategori", "deep_menit", "light_menit", "rem_menit", "awake_menit"}
+            db.simpan_metrik({k: v for k, v in data.items() if k not in baru})
 
     # Budget hanya relevan kalau saran makanan aktif.
     budget = status_budget(db, hari_ini) if (cfg.fitur_budget and cfg.fitur_makanan) else None

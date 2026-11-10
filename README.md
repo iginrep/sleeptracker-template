@@ -484,6 +484,7 @@ setiap hari, jadi biasanya aman.
 | Laporan pagi tidak datang | data tidur belum tersinkron, atau pemicu tidak jalan | buka aplikasi Garmin Connect, cek riwayat di cron-job.org dan tab Actions |
 | Ada metrik tampil `-` | jam tidak mengukur metrik itu, atau data belum sinkron | jalankan `python cek_garmin.py`, lihat file JSON di `samples/` |
 | `/laporan` lama dibalas | perintah baru diproses saat pemicu berikutnya | normal, tunggu pemicu berikutnya |
+| Log: `Kolom baru belum ada di Supabase` | tabel dibuat sebelum fitur tahap tidur ditambahkan | jalankan `supabase/migrasi_tahap_tidur.sql` di SQL Editor Supabase |
 
 ---
 
