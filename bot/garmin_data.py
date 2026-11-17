@@ -47,6 +47,13 @@ class MetrikHarian:
     light_menit: int | None = None
     rem_menit: int | None = None
     awake_menit: int | None = None
+    # Pernapasan saat tidur
+    napas_rata: float | None = None      # napas per menit (brpm)
+    napas_terendah: float | None = None
+    napas_tertinggi: float | None = None
+    variasi_napas: str | None = None     # Breathing Variations (butuh Pulse Ox saat tidur)
+    spo2_rata: int | None = None
+    spo2_terendah: int | None = None
 
     @property
     def ada_data_tidur(self) -> bool:
@@ -115,6 +122,28 @@ def olah_respons(tanggal: date, mentah: dict[str, Any]) -> MetrikHarian:
     m.light_menit = menit("lightSleepSeconds")
     m.rem_menit = menit("remSleepSeconds")
     m.awake_menit = menit("awakeSleepSeconds")
+
+    # Pernapasan. Laju napas ada di respons tidur harian. Breathing Variations
+    # (breathingDisruptionSeverity) ada di ringkasan tidur, dan hanya terisi
+    # kalau Pulse Ox saat tidur aktif di jam.
+    ringkasan_tidur = mentah.get("sleep_summary")
+
+    def desimal(*nama):
+        v = cari(tidur, *nama)
+        if v is None:
+            v = cari(ringkasan_tidur, *nama)
+        try:
+            return round(float(v), 1)
+        except (TypeError, ValueError):
+            return None
+
+    m.napas_rata = desimal("averageRespirationValue")
+    m.napas_terendah = desimal("lowestRespirationValue")
+    m.napas_tertinggi = desimal("highestRespirationValue")
+    variasi = cari(ringkasan_tidur, "breathingDisruptionSeverity") or cari(tidur, "breathingDisruptionSeverity")
+    m.variasi_napas = str(variasi).upper() if isinstance(variasi, str) else None
+    m.spo2_rata = _angka(cari(tidur, "averageSpO2Value") or cari(ringkasan_tidur, "averageSpO2Value"))
+    m.spo2_terendah = _angka(cari(tidur, "lowestSpO2Value") or cari(ringkasan_tidur, "lowestSpO2Value"))
 
     detik = _angka(cari(tidur, "sleepTimeSeconds", "totalSleepTimeSeconds", "sleepTimeInSeconds"))
     if detik:
@@ -210,6 +239,7 @@ def ambil_mentah(api_key: str, tanggal: date,
         "hrv": lambda c: c.get_daily_hrv(tanggal),
         "daily_summary": lambda c: c.get_daily_summaries(tanggal, tanggal),
         "body_battery": lambda c: c.get_daily_body_battery(tanggal, tanggal),
+        "sleep_summary": lambda c: c.get_daily_sleep_summaries(tanggal, tanggal),
     }
     if bagian:
         permintaan = {k: v for k, v in permintaan.items() if k in bagian}

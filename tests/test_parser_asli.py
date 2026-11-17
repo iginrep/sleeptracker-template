@@ -18,6 +18,8 @@ MENTAH = {
         "avgHeartRate": 60.0,
         "deepSleepSeconds": 3720, "lightSleepSeconds": 10_200,
         "remSleepSeconds": 3780, "awakeSleepSeconds": 1500,
+        "averageRespirationValue": 14.2, "lowestRespirationValue": 11.0,
+        "highestRespirationValue": 18.0, "averageSpO2Value": None,
         "sleepScores": {"overall": {"value": 61, "qualifierKey": "FAIR"},
                         "remPercentage": {"value": 20}},
     },
@@ -96,6 +98,29 @@ class TesKategoriDanTahap(unittest.TestCase):
         self.assertIn("Light: 2 jam 50 menit (58%)", teks)
         self.assertIn("REM: 1 jam 3 menit (21%)", teks)
         self.assertIn("Awake: 25 menit", teks)
+
+
+class TesPernapasan(unittest.TestCase):
+    def laporan(self, mentah):
+        from bot.recovery import tentukan_rekomendasi
+        from bot.report import susun_laporan
+        m = olah_respons(date(2026, 11, 6), mentah)
+        return m, susun_laporan(m, tentukan_rekomendasi(m), None, "x")
+
+    def test_tanpa_pulse_ox(self):
+        m, teks = self.laporan(dict(MENTAH, sleep_summary=[{"breathingDisruptionSeverity": None}]))
+        self.assertEqual(m.napas_rata, 14.2)
+        self.assertIn("Napas: rata-rata 14,2 brpm (rentang 11-18)", teks)
+        self.assertIn("Variasi napas: - (aktifkan Pulse Ox saat tidur di jam)", teks)
+        self.assertNotIn("SpO2", teks)
+
+    def test_dengan_pulse_ox(self):
+        mentah = dict(MENTAH, sleep_summary=[{"breathingDisruptionSeverity": "MINIMAL",
+                                              "averageSpO2Value": 95, "lowestSpO2Value": 89}])
+        m, teks = self.laporan(mentah)
+        print("\n" + teks)
+        self.assertIn("Variasi napas: Minimal", teks)
+        self.assertIn("SpO2: rata-rata 95%, terendah 89%", teks)
 
 
 if __name__ == "__main__":

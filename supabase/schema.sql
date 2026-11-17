@@ -15,6 +15,12 @@ create table if not exists daily_metrics (
     light_menit      int,
     rem_menit        int,
     awake_menit      int,
+    napas_rata       numeric(4,1),
+    napas_terendah   numeric(4,1),
+    napas_tertinggi  numeric(4,1),
+    variasi_napas    text,
+    spo2_rata        int,
+    spo2_terendah    int,
     dibuat_pada      timestamptz default now()
 );
 

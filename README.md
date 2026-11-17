@@ -438,6 +438,12 @@ Aturan tingkat pemulihan (di `bot/recovery.py`):
 
 Catatan AI baru membandingkan dengan tren setelah ada minimal 3 hari data sebelumnya.
 
+Data pernapasan saat tidur:
+- **Napas:** laju napas rata-rata (napas per menit) dan rentangnya.
+- **Variasi napas** (Garmin Breathing Variations) dan **SpO2:** hanya terisi kalau
+  Pulse Ox saat tidur aktif dan jam mendukung fitur ini. Jam Garmin bukan alat medis.
+  Kalau variasi napas sering tinggi, konsultasikan ke dokter.
+
 ---
 
 ## 15. Perintah Telegram
@@ -484,7 +490,8 @@ setiap hari, jadi biasanya aman.
 | Laporan pagi tidak datang | data tidur belum tersinkron, atau pemicu tidak jalan | buka aplikasi Garmin Connect, cek riwayat di cron-job.org dan tab Actions |
 | Ada metrik tampil `-` | jam tidak mengukur metrik itu, atau data belum sinkron | jalankan `python cek_garmin.py`, lihat file JSON di `samples/` |
 | `/laporan` lama dibalas | perintah baru diproses saat pemicu berikutnya | normal, tunggu pemicu berikutnya |
-| Log: `Kolom baru belum ada di Supabase` | tabel dibuat sebelum fitur tahap tidur ditambahkan | jalankan `supabase/migrasi_tahap_tidur.sql` di SQL Editor Supabase |
+| Log: `Kolom baru belum ada di Supabase` | tabel dibuat sebelum fitur baru ditambahkan | jalankan semua file `supabase/migrasi_*.sql` di SQL Editor Supabase |
+| `Variasi napas: - (aktifkan Pulse Ox saat tidur di jam)` | Pulse Ox saat tidur mati, atau jam tidak mendukung Breathing Variations | di jam atau aplikasi Garmin Connect, atur Pulse Ox ke mode saat tidur. Baterai jam akan lebih cepat habis |
 
 ---
 

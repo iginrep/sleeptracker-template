@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from .ai import baris_tahap_tidur, format_durasi, label_kategori
+from .ai import baris_pernapasan, baris_tahap_tidur, format_durasi, label_kategori
 from .budget import StatusBudget, rupiah
 from .garmin_data import MetrikHarian
 from .recovery import Rekomendasi
@@ -43,6 +43,7 @@ def susun_laporan(m: MetrikHarian, rek: Rekomendasi, b: StatusBudget | None,
         (f"Body Battery saat bangun: {_v(m.body_battery)}" if m.ada_data_tidur
          else f"Body Battery tertinggi hari ini: {_v(m.body_battery)}"),
         f"Resting HR: {_v(m.resting_hr, ' bpm')}",
+        *baris_pernapasan(m),
         "",
         f"{IKON.get(rek.tingkat, '⚪')} Pemulihan: {rek.tingkat.upper()}",
         f"({', '.join(rek.alasan)})",

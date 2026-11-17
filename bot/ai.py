@@ -96,6 +96,34 @@ def baris_tahap_tidur(m: MetrikHarian) -> list[str]:
     return baris
 
 
+def _angka_id(x: float) -> str:
+    """14.2 -> '14,2', 15.0 -> '15'."""
+    teks = f"{x:.1f}".rstrip("0").rstrip(".")
+    return teks.replace(".", ",")
+
+
+def label_variasi_napas(v: str | None) -> str | None:
+    """'MINIMAL' -> 'Minimal', 'VERY_HIGH' -> 'Very high'."""
+    return v.replace("_", " ").capitalize() if v else None
+
+
+def baris_pernapasan(m: MetrikHarian) -> list[str]:
+    baris = []
+    if m.napas_rata is not None:
+        rentang = ""
+        if m.napas_terendah is not None and m.napas_tertinggi is not None:
+            rentang = f" (rentang {_angka_id(m.napas_terendah)}-{_angka_id(m.napas_tertinggi)})"
+        baris.append(f"Napas: rata-rata {_angka_id(m.napas_rata)} brpm{rentang}")
+    if m.variasi_napas:
+        baris.append(f"Variasi napas: {label_variasi_napas(m.variasi_napas)}")
+    elif m.ada_data_tidur:
+        baris.append("Variasi napas: - (aktifkan Pulse Ox saat tidur di jam)")
+    if m.spo2_rata is not None:
+        terendah = f", terendah {m.spo2_terendah}%" if m.spo2_terendah is not None else ""
+        baris.append(f"SpO2: rata-rata {m.spo2_rata}%{terendah}")
+    return baris
+
+
 def ringkas_tren(riwayat: list[dict], minimal_hari: int = 3) -> str:
     """Ringkasan hari-hari SEBELUM hari ini. Riwayat tidak boleh berisi hari ini."""
     if len(riwayat) < minimal_hari:
@@ -132,6 +160,10 @@ BUDGET MAKAN
 - HRV semalam: {_fmt(m.hrv_semalam, ' ms')} (status: {_fmt(m.hrv_status)})
 - {"Body Battery saat bangun" if m.ada_data_tidur else "Body Battery tertinggi hari ini (data tidur belum ada, jam mungkin tidak dipakai semalam)"}: {_fmt(m.body_battery)}
 - Resting HR: {_fmt(m.resting_hr, ' bpm')}
+- Pernapasan saat tidur: {"; ".join(baris_pernapasan(m)) or "tidak tersedia"}
+  (Variasi napas dan SpO2 dari jam bukan alat medis. Jangan menyimpulkan gangguan napas
+  atau penyakit. Kalau variasi napas tinggi, cukup sarankan memperhatikan lingkungan tidur
+  dan berkonsultasi ke dokter bila berulang.)
 - Tren: {tren}
 
 KEPUTUSAN SISTEM
